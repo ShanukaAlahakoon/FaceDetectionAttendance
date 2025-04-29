@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Lecturer Dashboard - Attendance System</title>
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='styles.css') }}"
+    />
+  </head>
+  <body>
+    <div class="sidebar">
+      <h2>Attendance <span class="highlight">MS</span></h2>
+      <ul>
+        <li>
+          <a href="{{ url_for('lec_dashboard') }}" class="active"
+            >Take Attendance</a
+          >
+        </li>
+
+        <li>
+          <a href="#" class="menu-item">
+            <i class="fas fa-eye"></i>
+            View Attendance
+          </a>
+        </li>
+        <li>
+          <a href="#" class="menu-item">
+            <i class="fas fa-users"></i>
+            Students
+          </a>
+        </li>
+        <li>
+          <a href="#" class="menu-item">
+            <i class="fas fa-download"></i>
+            Download Attendance
+          </a>
+        </li>
+      </ul>
+      <div class="sidebar-footer">
+        <a href="#" class="menu-item">
+          <i class="fas fa-cog"></i>
+          Settings
+        </a>
+        <a href="{{ url_for('logout') }}" class="menu-item">
+          <i class="fas fa-sign-out-alt"></i>
+          Logout
+        </a>
+      </div>
+    </div>
+
+    <div class="main-content">
+      <header>
+        <div class="search-bar">
+          <input type="text" placeholder="Search..." />
+          <button type="submit">
+            <i class="fas fa-search"></i>
+          </button>
+        </div>
+        <div class="user-info">
+          <span class="user-name">@{{ lecturer.firstName }}</span>
+          <img
+            src="{{ url_for('static', filename='images/profile.png') }}"
+            alt="Profile"
+            class="profile-pic"
+          />
+        </div>
+      </header>
+
+      <div class="attendance-section">
+        <h3>Take Attendance</h3>
+        <p class="instruction">
+          Please select course, unit, and venue first. Before Launching Facial
+          Recognition
+        </p>
+
+        <div class="selection-controls">
+          <select class="select-box" id="courseSelect">
+            <option value="">Select Course</option>
+            {% if courses %} {% for course in courses %}
+            <option value="{{ course.id }}">{{ course.name }}</option>
+            {% endfor %} {% endif %}
+          </select>
+
+          <select class="select-box" id="unitSelect" disabled>
+            <option value="">Select Unit</option>
+          </select>
+
+          <select class="select-box" id="venueSelect" disabled>
+            <option value="">Select Venue</option>
+            {% if lecturer.venues %} {% for venue in lecturer.venues %}
+            <option value="{{ venue.id }}">{{ venue.className }}</option>
+            {% endfor %} {% endif %}
+          </select>
+        </div>
+
+        <div class="action-buttons">
+          <button class="btn launch-btn" disabled>
+            Launch Facial Recognition
+          </button>
+          <button class="btn end-btn" disabled>END Attendance Taking</button>
+        </div>
+
+        <div
+          class="student-data-section"
+          id="studentDataSection"
+          style="display: none"
+        >
+          <h3>Student List</h3>
+          <table class="student-table">
+            <thead>
+              <tr>
+                <th>Registration No</th>
+                <th>Name</th>
+                <th>Course</th>
+                <th>Unit</th>
+                <th>Venue</th>
+                <th>Attendance</th>
+                <th>Settings</th>
+              </tr>
+            </thead>
+            <tbody id="studentTableBody">
+              <!-- Student data will be inserted here -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        const courseSelect = document.getElementById("courseSelect");
+        const unitSelect = document.getElementById("unitSelect");
+        const venueSelect = document.getElementById("venueSelect");
+        const launchBtn = document.querySelector(".launch-btn");
+        const endBtn = document.querySelector(".end-btn");
+        const studentDataSection =
+          document.getElementById("studentDataSection");
+        const studentTableBody = document.getElementById("studentTableBody");
+
+        // Course selection change handler
+        courseSelect.addEventListener("change", function () {
+          const courseId = this.value;
+          console.log("Selected course:", courseId);
+
+          // Reset unit and venue selections
+          unitSelect.innerHTML = '<option value="">Select Unit</option>';
+          unitSelect.disabled = true;
+          venueSelect.disabled = true;
+
+          if (!courseId) {
+            if (studentDataSection) {
+              studentDataSection.style.display = "none";
+            }
+            return;
+          }
+
+          // Fetch students for selected course
+          fetch(`/get_students_by_course/${courseId}`)
+            .then((response) => response.json())
+            .then((students) => {
+              console.log("Received students:", students);
+
+              if (studentTableBody) {
+                studentTableBody.innerHTML = "";
+
+                if (students && students.length > 0) {
+                  studentDataSection.style.display = "block";
+                  students.forEach((student) => {
+                    const row = document.createElement("tr");
+                    row.innerHTML = `
+                      <td>${student.regNo || "-"}</td>
+                      <td>${student.firstName} ${student.lastName}</td>
+                      <td>${student.courseName}</td>
+                      <td>-</td>
+                      <td>-</td>
+                      <td>Absent</td>
+                      <td>
+                        <a href="#" class="edit-btn" data-id="${
+                          student.id
+                        }">✏️</a>
+                        <a href="#" class="delete-btn" data-id="${
+                          student.id
+                        }">🗑️</a>
+                      </td>
+                    `;
+                    studentTableBody.appendChild(row);
+                  });
+                } else {
+                  const row = document.createElement("tr");
+                  row.innerHTML =
+                    '<td colspan="7" class="no-data">No students found for this course</td>';
+                  studentTableBody.appendChild(row);
+                }
+              }
+            })
+            .catch((error) => {
+              console.error("Error loading students:", error);
+              if (studentTableBody) {
+                studentTableBody.innerHTML =
+                  '<tr><td colspan="7" class="error">Error loading students</td></tr>';
+              }
+            });
+
+          // Continue with fetching units as before...
+          fetch(`/get_units_by_course/${courseId}`)
+            .then((response) => response.json())
+            .then((units) => {
+              if (units && units.length > 0) {
+                units.forEach((unit) => {
+                  const option = document.createElement("option");
+                  option.value = unit.id;
+                  option.textContent = `${unit.unitCode} - ${unit.name}`;
+                  unitSelect.appendChild(option);
+                });
+                unitSelect.disabled = false;
+              }
+            })
+            .catch((error) => console.error("Error loading units:", error));
+        });
+
+        // Unit selection change handler
+        unitSelect.addEventListener("change", function () {
+          const unitId = this.value;
+          console.log("Selected unit:", unitId);
+
+          // Enable/disable venue select and launch button
+          venueSelect.disabled = !unitId;
+          launchBtn.disabled = !unitId || !venueSelect.value;
+
+          // Update the unit column in existing student rows
+          const selectedUnitText = unitId
+            ? this.options[this.selectedIndex].text
+            : "-";
+          const studentRows = studentTableBody.getElementsByTagName("tr");
+
+          Array.from(studentRows).forEach((row) => {
+            // Only update if it's not an error or no-data row
+            if (
+              !row.querySelector(".error") &&
+              !row.querySelector(".no-data")
+            ) {
+              // Update the unit cell (4th column)
+              const unitCell = row.cells[3];
+              if (unitCell) {
+                unitCell.textContent = selectedUnitText;
+              }
+            }
+          });
+        });
+
+        // Update the venue selection handler
+        venueSelect.addEventListener("change", function () {
+          const venueId = this.value;
+          console.log("Selected venue:", venueId);
+
+          // Enable/disable launch button
+          launchBtn.disabled = !venueId;
+
+          // Get the selected venue text
+          const selectedVenueText = venueId
+            ? this.options[this.selectedIndex].text
+            : "-";
+          console.log("Selected venue text:", selectedVenueText); // Debug log
+
+          // Get all student rows and update venue
+          const studentRows = studentTableBody.getElementsByTagName("tr");
+
+          Array.from(studentRows).forEach((row) => {
+            // Make sure row has the right number of cells and isn't an error message
+            if (
+              row.cells.length >= 5 &&
+              !row.querySelector(".error") &&
+              !row.querySelector(".no-data")
+            ) {
+              // Update the venue cell (5th column)
+              const venueCell = row.cells[4]; // Index 4 is the venue column
+              if (venueCell) {
+                venueCell.textContent = selectedVenueText;
+                console.log("Updated venue cell:", venueCell.textContent); // Debug log
+              }
+            }
+          });
+        });
+
+        // Function to fetch and display students
+        function fetchStudents() {
+          const courseId = courseSelect.value;
+          const unitId = unitSelect.value;
+
+          if (!courseId || !unitId) return;
+
+          fetch(
+            `/get_students_by_course_unit?course=${courseId}&unit=${unitId}`
+          )
+            .then((response) => response.json())
+            .then((data) => {
+              if (studentTableBody) {
+                studentTableBody.innerHTML = "";
+
+                if (data.length > 0) {
+                  studentDataSection.style.display = "block";
+                  data.forEach((student) => {
+                    const row = document.createElement("tr");
+                    row.innerHTML = `
+                      <td>${student.regNo}</td>
+                      <td>${student.firstName} ${student.lastName}</td>
+                      <td>${student.courseName}</td>
+                      <td>${student.unitName}</td>
+                      <td>${
+                        venueSelect.options[venueSelect.selectedIndex].text ||
+                        "-"
+                      }</td>
+                      <td>Absent</td>
+                      <td>
+                        <a href="#" class="edit-btn" data-id="${
+                          student.id
+                        }">✏️</a>
+                        <a href="#" class="delete-btn" data-id="${
+                          student.id
+                        }">🗑️</a>
+                      </td>
+                    `;
+                    studentTableBody.appendChild(row);
+                  });
+                } else {
+                  studentDataSection.style.display = "block";
+                  const row = document.createElement("tr");
+                  row.innerHTML =
+                    '<td colspan="7" class="no-data">No students found for this course and unit</td>';
+                  studentTableBody.appendChild(row);
+                }
+              }
+            })
+            .catch((error) => {
+              console.error("Error fetching students:", error);
+              if (studentTableBody) {
+                studentTableBody.innerHTML =
+                  '<tr><td colspan="7" class="error">Error loading students</td></tr>';
+              }
+            });
+        }
+      });
+    </script>
+  </body>
+</html>

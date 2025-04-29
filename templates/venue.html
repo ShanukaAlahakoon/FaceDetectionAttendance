@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Manage Venues - Attendance System</title>
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='styles.css') }}"
+    />
+  </head>
+  <body>
+    <div class="sidebar">
+      <h2>Attendance <span class="highlight">MS</span></h2>
+      <ul>
+        <li><a href="{{ url_for('dashboard') }}">Dashboard</a></li>
+        <li>
+          <a href="{{ url_for('manage_courses') }}">Manage Courses</a>
+        </li>
+        <li>
+          <a href="{{ url_for('manage_venues') }}" class="active"
+            >Create Venue</a
+          >
+        </li>
+        <li>
+          <a href="{{ url_for('manage_lectures') }}">Manage Lectures</a>
+        </li>
+        <li>
+          <a href="{{ url_for('manage_students') }}">Manage Students</a>
+        </li>
+      </ul>
+      <div class="sidebar-footer">
+        <a href="#">Settings</a>
+        <a href="{{ url_for('logout') }}">Logout</a>
+      </div>
+    </div>
+
+    <div class="main-content">
+      <header>
+        <input type="text" placeholder="Search ..." />
+        <span class="admin-badge">@Admin</span>
+      </header>
+
+      <h3 class="page-title">Overview</h3>
+
+      <section class="overview">
+        <div class="card">
+          <div class="card-content">
+            <span class="count">{{ total_venues }}</span>
+            <p>Lecture Rooms</p>
+          </div>
+          <a href="#" class="add-small-btn" id="addVenueBtn">+ Add Room</a>
+        </div>
+      </section>
+
+      <section class="data-section">
+        <h3>Lecture Rooms</h3>
+        <table>
+          <tr>
+            <th>Class Name</th>
+            <th>Faculty</th>
+            <th>Current Status</th>
+            <th>Capacity</th>
+            <th>Classification</th>
+            <th>Settings</th>
+          </tr>
+          {% for venue in venues %}
+          <tr>
+            <td>{{ venue.className }}</td>
+            <td>{{ venue.facultyCode }}</td>
+            <td>{{ venue.currentStatus }}</td>
+            <td>{{ venue.capacity }}</td>
+            <td>{{ venue.classification }}</td>
+            <td>
+              <a href="#" class="delete-btn">❌</a>
+            </td>
+          </tr>
+          {% endfor %}
+        </table>
+      </section>
+    </div>
+
+    <!-- Add this modal HTML at the end of your body tag but before any scripts -->
+    <div id="venueModal" class="modal" style="display: none">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>Add Venue</h2>
+          <span class="close">&times;</span>
+        </div>
+        <form id="venueForm">
+          <div class="form-group">
+            <input
+              type="text"
+              id="className"
+              name="className"
+              placeholder="Class Name"
+              required
+            />
+          </div>
+
+          <div class="form-group">
+            <select id="currentStatus" name="currentStatus" required>
+              <option value="">--Current Status--</option>
+              <option value="Available">Available</option>
+              <option value="Occupied">Occupied</option>
+              <option value="Under Maintenance">Under Maintenance</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <input
+              type="number"
+              id="capacity"
+              name="capacity"
+              placeholder="Capacity"
+              min="1"
+              required
+            />
+          </div>
+
+          <div class="form-group">
+            <select id="classType" name="classType" required>
+              <option value="">--Select Class Type--</option>
+              <option value="Laboratory">Laboratory</option>
+              <option value="Lecture Hall">Lecture Hall</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <select id="faculty" name="faculty" required>
+              <option value="">Select Faculty</option>
+            </select>
+          </div>
+
+          <button type="submit" class="save-btn">Save Venue</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Add this JavaScript at the end of your file -->
+    <script>
+      // Get modal elements
+      const modal = document.getElementById("venueModal");
+      const closeBtn = document.querySelector(".close");
+      const addVenueBtn = document.getElementById("addVenueBtn");
+      const venueForm = document.getElementById("venueForm");
+
+      // Show modal when Add Venue button is clicked
+      addVenueBtn.addEventListener("click", function () {
+        modal.style.display = "flex";
+        loadFaculties();
+      });
+
+      // Close modal when X is clicked
+      closeBtn.addEventListener("click", function () {
+        modal.style.display = "none";
+      });
+
+      // Close modal when clicking outside
+      window.addEventListener("click", function (event) {
+        if (event.target === modal) {
+          modal.style.display = "none";
+        }
+      });
+
+      // Load faculties when modal opens
+      function loadFaculties() {
+        const facultySelect = document.getElementById("faculty");
+        facultySelect.innerHTML = '<option value="">Select Faculty</option>';
+
+        fetch("/get_faculties")
+          .then((response) => response.json())
+          .then((faculties) => {
+            faculties.forEach((faculty) => {
+              const option = document.createElement("option");
+              option.value = faculty.facultyCode;
+              option.textContent = faculty.facultyName;
+              facultySelect.appendChild(option);
+            });
+          })
+          .catch((error) => console.error("Error:", error));
+      }
+
+      // Handle form submission
+      venueForm.addEventListener("submit", function (event) {
+        event.preventDefault();
+
+        // Get form values
+        const className = document.getElementById("className").value;
+        const status = document.getElementById("currentStatus").value;
+        const capacity = document.getElementById("capacity").value;
+        const classType = document.getElementById("classType").value;
+        const facultyCode = document.getElementById("faculty").value;
+
+        console.log("Sending form data:", {
+          className,
+          currentStatus: status,
+          capacity,
+          classType,
+          facultyCode,
+        }); // Debug log
+
+        fetch("/add_venue", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            className,
+            currentStatus: status,
+            capacity,
+            classType,
+            facultyCode,
+          }),
+        })
+          .then((response) => response.json())
+          .then((data) => {
+            if (data.success) {
+              alert("Venue added successfully!");
+              modal.style.display = "none";
+              venueForm.reset();
+              // Reload the page to show the new venue
+              location.reload();
+            } else {
+              alert("Error adding venue: " + data.message);
+            }
+          })
+          .catch((error) => {
+            console.error("Error:", error);
+            alert("Error adding venue. Please try again.");
+          });
+      });
+    </script>
+  </body>
+</html>

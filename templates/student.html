@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Manage Students - Attendance System</title>
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='styles.css') }}"
+    />
+  </head>
+  <body>
+    <div class="sidebar">
+      <h2>Attendance <span class="highlight">MS</span></h2>
+      <ul>
+        <li><a href="{{ url_for('dashboard') }}">Dashboard</a></li>
+        <li>
+          <a href="{{ url_for('manage_courses') }}">Manage Courses</a>
+        </li>
+        <li>
+          <a href="{{ url_for('manage_venues') }}">Create Venue</a>
+        </li>
+        <li>
+          <a href="{{ url_for('manage_lectures') }}">Manage Lectures</a>
+        </li>
+        <li>
+          <a href="{{ url_for('manage_students') }}" class="active"
+            >Manage Students</a
+          >
+        </li>
+      </ul>
+      <div class="sidebar-footer">
+        <a href="#">Settings</a>
+        <a href="{{ url_for('logout') }}">Logout</a>
+      </div>
+    </div>
+
+    <div class="main-content">
+      <header>
+        <input type="text" placeholder="Search ..." />
+        <span class="admin-badge">@Admin</span>
+      </header>
+
+      <h3 class="page-title">Overview</h3>
+
+      <section class="overview">
+        <div class="card">
+          <div class="card-content">
+            <span class="count">{{ total_students }}</span>
+            <p>Students</p>
+          </div>
+          <a href="#" class="add-small-btn" id="addStudentBtn">+ Add Student</a>
+        </div>
+      </section>
+
+      <section class="data-section">
+        <h3>Students</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Registration No.</th>
+              <th>Student Name</th>
+              <th>Faculty</th>
+              <th>Course</th>
+              <th>Email</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for student in students %}
+            <tr>
+              <td>{{ student.registrationNumber }}</td>
+              <td>{{ student.firstName }} {{ student.lastName }}</td>
+              <td>{{ student.faculty }}</td>
+              <td>{{ student.courseCode }}</td>
+              <td>{{ student.email }}</td>
+              <td>
+                <a href="#" class="delete-btn" onclick="deleteStudent('{{ student.id }}')">❌</a>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </section>
+    </div>
+
+    <!-- Add this modal HTML before the closing body tag -->
+    <div id="studentModal" class="modal" style="display: none">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>Add Student</h2>
+          <span class="close">&times;</span>
+        </div>
+        <form id="studentForm">
+          <div class="form-group">
+            <input
+              type="text"
+              id="firstName"
+              name="firstName"
+              placeholder="First Name"
+              required
+            />
+          </div>
+
+          <div class="form-group">
+            <input
+              type="text"
+              id="lastName"
+              name="lastName"
+              placeholder="Last Name"
+              required
+            />
+          </div>
+
+          <div class="form-group">
+            <input
+              type="email"
+              id="emailAddress"
+              name="emailAddress"
+              placeholder="Email Address"
+              required
+            />
+          </div>
+
+          <div class="form-group">
+            <input
+              type="text"
+              id="registrationNumber"
+              name="registrationNumber"
+              placeholder="Registration Number"
+              required
+            />
+          </div>
+
+          <div class="form-group">
+            <label for="faculty">Faculty</label>
+            <select id="faculty" name="faculty" required>
+              <option value="">Select Faculty</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="course">Course</label>
+            <select id="course" name="course" required>
+              <option value="">Select Course</option>
+            </select>
+          </div>
+
+          <button type="submit" class="save-btn">Save Student</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Add this JavaScript -->
+    <script>
+      document.addEventListener('DOMContentLoaded', function() {
+        const modal = document.getElementById("studentModal");
+        const facultySelect = document.getElementById('faculty');
+        const courseSelect = document.getElementById('course');
+        const addStudentBtn = document.getElementById("addStudentBtn");
+        
+        // Function to load faculties
+        function loadFaculties() {
+          console.log("Loading faculties...");
+          facultySelect.innerHTML = '<option value="">Select Faculty</option>';
+          
+          fetch('/get_faculties')
+            .then(response => response.json())
+            .then(faculties => {
+              console.log('Received faculties:', faculties);
+              if (faculties && faculties.length > 0) {
+                faculties.forEach(faculty => {
+                  const option = document.createElement('option');
+                  option.value = faculty.facultyCode;
+                  option.textContent = faculty.facultyName;
+                  facultySelect.appendChild(option);
+                });
+              } else {
+                const option = document.createElement('option');
+                option.value = "";
+                option.textContent = "No faculties available";
+                facultySelect.appendChild(option);
+              }
+            })
+            .catch(error => {
+              console.error('Error loading faculties:', error);
+              facultySelect.innerHTML = '<option value="">Error loading faculties</option>';
+            });
+        }
+
+        // Function to load courses based on selected faculty
+        function loadCoursesByFaculty(facultyCode) {
+          console.log('Loading courses for faculty:', facultyCode);
+          courseSelect.innerHTML = '<option value="">Loading courses...</option>';
+          
+          fetch(`/get_courses_by_faculty/${facultyCode}`)
+            .then(response => response.json())
+            .then(courses => {
+              console.log('Received courses:', courses);
+              courseSelect.innerHTML = '<option value="">Select Course</option>';
+              
+              if (Array.isArray(courses) && courses.length > 0) {
+                courses.forEach(course => {
+                  const option = document.createElement('option');
+                  option.value = course.courseCode;
+                  option.textContent = `${course.name} (${course.courseCode})`;
+                  courseSelect.appendChild(option);
+                });
+              } else {
+                const option = document.createElement('option');
+                option.value = "";
+                option.textContent = "No courses available for this faculty";
+                courseSelect.appendChild(option);
+              }
+            })
+            .catch(error => {
+              console.error('Error loading courses:', error);
+              courseSelect.innerHTML = '<option value="">Error loading courses</option>';
+            });
+        }
+
+        // Add event listener for faculty selection
+        facultySelect.addEventListener('change', function() {
+          const selectedFacultyCode = this.value;
+          console.log('Selected faculty:', selectedFacultyCode);
+          
+          if (selectedFacultyCode) {
+            loadCoursesByFaculty(selectedFacultyCode);
+          } else {
+            courseSelect.innerHTML = '<option value="">Select Faculty First</option>';
+          }
+        });
+
+        // Show modal and load faculties when Add Student button is clicked
+        if (addStudentBtn) {
+          addStudentBtn.addEventListener("click", function(e) {
+            e.preventDefault();
+            modal.style.display = "flex";
+            loadFaculties();
+          });
+        }
+
+        // Close modal when X is clicked
+        const closeBtn = document.querySelector(".close");
+        closeBtn.addEventListener("click", function () {
+          modal.style.display = "none";
+          document.getElementById("studentForm").reset();
+        });
+
+        // Close modal when clicking outside
+        window.addEventListener("click", function (event) {
+          if (event.target === modal) {
+            modal.style.display = "none";
+            document.getElementById("studentForm").reset();
+          }
+        });
+
+        // Handle form submission
+        document.getElementById("studentForm").addEventListener("submit", function (event) {
+          event.preventDefault();
+
+          const selectedCourse = document.getElementById("course").value;
+          console.log("Selected course:", selectedCourse); // Debug log
+
+          const formData = {
+            firstName: document.getElementById("firstName").value,
+            lastName: document.getElementById("lastName").value,
+            email: document.getElementById("emailAddress").value,
+            registrationNumber: document.getElementById("registrationNumber").value,
+            courseId: selectedCourse,
+            faculty: document.getElementById("faculty").value  // Add faculty
+          };
+
+          console.log("Sending student data:", formData); // Debug log
+
+          fetch("/add_student", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(formData)
+          })
+            .then(response => response.json())
+            .then(data => {
+              if (data.success) {
+                alert("Student added successfully!");
+                modal.style.display = "none";
+                document.getElementById("studentForm").reset();
+                location.reload();
+              } else {
+                alert("Error: " + (data.message || "Failed to add student"));
+              }
+            })
+            .catch(error => {
+              console.error("Error:", error);
+              alert("Error adding student. Please try again.");
+            });
+        });
+      });
+    </script>
+  </body>
+</html>
